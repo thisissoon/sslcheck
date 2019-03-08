@@ -1,0 +1,50 @@
+#
+# GitLab CI Script
+# Builds, Tests and Deploys the sslcheck
+#
+
+#
+# Services
+#
+
+#
+# Constant Variables
+#
+
+variables:
+  DOCKER_IMAGE: n
+
+#
+# Stages
+#
+
+stages:
+  - test
+
+#
+# Common tasks to run for all stages
+#
+
+before_script:
+
+#
+# Test Stages
+#
+
+# Runs tests in a go image
+test:
+  stage: test
+  image: golang:1.12-alpine
+  script:
+    - apk update && apk add make build-base git
+    - make test
+
+# Runs code linting
+lint:
+  stage: test
+  image: golang:1.12-alpine
+  script:
+    - apk update && apk add build-base git
+    - go get
+    - wget -O - -q https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s v1.12.5
+    - ./bin/golangci-lint run
