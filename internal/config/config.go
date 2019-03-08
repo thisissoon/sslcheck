@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/rs/zerolog"
 	"go.soon.build/kit/config"
 )
@@ -11,6 +13,7 @@ const APP_NAME = "sslcheck"
 // Config stores configuration options set by configuration file or env vars
 type Config struct {
 	Log Log
+	SSL SSLChecker `mapstructure:"ssl"`
 }
 
 // Log contains logging configuration
@@ -20,10 +23,22 @@ type Log struct {
 	Level   string
 }
 
+// SSLChecker contains configuration for cert checker
+type SSLChecker struct {
+	ConnectTimeout   time.Duration
+	WarnValidity     int
+	CriticalValidity int
+}
+
 // Default is a default configuration setup with sane defaults
 var Default = Config{
 	Log{
 		Level: zerolog.InfoLevel.String(),
+	},
+	SSLChecker{
+		ConnectTimeout:   30 * time.Second,
+		WarnValidity:     30,
+		CriticalValidity: 14,
 	},
 }
 

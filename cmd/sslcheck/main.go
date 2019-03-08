@@ -3,9 +3,14 @@ package main
 import (
 	"io"
 	"os"
+	"time"
+	"errors"
+	"math"
+	"fmt"
 
 	"go.soon.build/sslcheck/internal/config"
 	"go.soon.build/sslcheck/internal/version"
+	"go.soon.build/sslcheck/internal/ssl"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -43,6 +48,9 @@ func sslcheckCmd() *cobra.Command {
 				configkit.WithFile(configPath),
 				configkit.BindFlag("log.console", cmd.Flag("console")),
 				configkit.BindFlag("log.verbose", cmd.Flag("verbose")),
+				configkit.BindFlag("ssl.connectTimeout", cmd.Flag("timeout")),
+				configkit.BindFlag("ssl.warnValidity", cmd.Flag("warning")),
+				configkit.BindFlag("ssl.criticalValidity", cmd.Flag("critical")),
 			)
 			if err != nil {
 				return err
@@ -58,15 +66,54 @@ func sslcheckCmd() *cobra.Command {
 	pflags.StringVarP(&configPath, "config", "c", "", "path to configuration file (default is $HOME/.config/sslcheck.toml)")
 	pflags.Bool("console", false, "use console log writer")
 	pflags.BoolP("verbose", "v", false, "verbose logging")
+
+	pflags.StringArrayVar(&hosts, "host", []string{}, "the domain name of the host to check")
+	pflags.Duration("timeout", 30*time.Second, "connection timeout")
+	pflags.Int("warning", 30, "warning validity in days")
+	pflags.Int("critical", 14, "critical validity in days")
 	// Add sub commands
 	cmd.AddCommand(versionCmd())
 	return cmd
 }
 
+var hosts []string
+
 // sslcheckRun is executed when the CLI executes
 // the sslcheck command
 func sslcheckRun(cmd *cobra.Command, _ []string) error {
-	return cmd.Help()
+	if hosts == nil {
+		return errors.New("--host is required")
+	}
+	if cfg.SSL.WarnValidity < cfg.SSL.CriticalValidity {
+		return errors.New("--critical is higher than --warning, i guess thats a bad idea")
+	}
+
+	c := ssl.CheckerConfig{
+		ConnectTimeout: cfg.SSL.ConnectTimeout,
+		WarnValidity: time.Hour * 24 * time.Duration(cfg.SSL.WarnValidity),
+		CriticalValidity: time.Hour * 24 * time.Duration(cfg.SSL.CriticalValidity),
+	}
+	for _, host := range hosts {
+		certs, err := ssl.Check(log, host, c)
+		if err != nil {
+			return err
+		}
+		for _, status := range certs {
+			logger := log.Info()
+			switch status.Status {
+			case ssl.StatusWarning, ssl.StatusCritical:
+				logger = log.Warn()
+			}
+			logger.
+				Str("host", status.Host).
+				Str("commonName", status.CommonName).
+				Time("expiry", status.Expires).
+				Dur("remainingTime", status.TimeRemaining).
+				Int("status", int(status.Status)).
+				Msg(fmt.Sprintf("%s - expires in %s", status.CommonName, formatDuration(status.TimeRemaining)))
+		}
+	}
+	return nil
 }
 
 // initLogger constructs a default logger from config
@@ -92,4 +139,36 @@ func initLogger(c config.Log) zerolog.Logger {
 		"version": version.Version,
 		"app":     config.APP_NAME,
 	}).Timestamp().Logger()
+}
+
+func formatDuration(in time.Duration) string {
+	var daysPart, hoursPart, minutesPart, secondsPart string
+
+	days := math.Floor(in.Hours() / 24)
+	hoursRemaining := math.Mod(in.Hours(), 24)
+	if days > 0 {
+		daysPart = fmt.Sprintf("%.fd", days)
+	} else {
+		daysPart = ""
+	}
+
+	hours, hoursRemaining := math.Modf(hoursRemaining)
+	minutesRemaining := hoursRemaining * 60
+	if hours > 0 {
+		hoursPart = fmt.Sprintf("%.fh", hours)
+	} else {
+		hoursPart = ""
+	}
+
+	if minutesRemaining > 0 {
+		minutesPart = fmt.Sprintf("%.fm", minutesRemaining)
+	}
+
+	_, minutesRemaining = math.Modf(minutesRemaining)
+	secondsRemaining := minutesRemaining * 60
+	if secondsRemaining > 0 {
+		secondsPart = fmt.Sprintf("%.fs", secondsRemaining)
+	}
+
+	return fmt.Sprintf("%s %s %s %s", daysPart, hoursPart, minutesPart, secondsPart)
 }
