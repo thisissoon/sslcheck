@@ -38,7 +38,7 @@ func sslcheckCmd() *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
 		Use:   "sslcheck",
-		Short: "Run the service",
+		Short: "Check SSL certificate status for provided hosts",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -67,7 +67,7 @@ func sslcheckCmd() *cobra.Command {
 	pflags.Bool("console", false, "use console log writer")
 	pflags.BoolP("verbose", "v", false, "verbose logging")
 
-	pflags.StringArrayVar(&hosts, "host", []string{}, "the domain name of the host to check")
+	pflags.StringArrayVar(&hosts, "host", []string{}, "the domain names of the hosts to check")
 	pflags.Duration("timeout", 30*time.Second, "connection timeout")
 	pflags.Int("warning", 30, "warning validity in days")
 	pflags.Int("critical", 14, "critical validity in days")

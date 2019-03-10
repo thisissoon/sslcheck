@@ -4,6 +4,9 @@
 
 Tool to monitor SSL certificates.
 
+```
+sslcheck --console --host thisissoon.com
+```
 
 ## Development
 
