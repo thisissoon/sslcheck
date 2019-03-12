@@ -12,8 +12,9 @@ const APP_NAME = "sslcheck"
 
 // Config stores configuration options set by configuration file or env vars
 type Config struct {
-	Log Log
-	SSL SSLChecker `mapstructure:"ssl"`
+	Log   Log
+	SSL   SSLChecker `mapstructure:"ssl"`
+	Slack Slack
 }
 
 // Log contains logging configuration
@@ -21,6 +22,12 @@ type Log struct {
 	Console bool
 	Verbose bool
 	Level   string
+}
+
+// Slack contains config for sending messages to slack
+type Slack struct {
+	Enabled bool
+	HookUrl string
 }
 
 // SSLChecker contains configuration for cert checker
@@ -39,6 +46,10 @@ var Default = Config{
 		ConnectTimeout:   30 * time.Second,
 		WarnValidity:     30,
 		CriticalValidity: 14,
+	},
+	Slack{
+		Enabled: false,
+		HookUrl: "",
 	},
 }
 
