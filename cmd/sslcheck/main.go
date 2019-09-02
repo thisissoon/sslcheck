@@ -110,6 +110,7 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 				Time("expiry", status.Expires).
 				Dur("remainingTime", status.TimeRemaining).
 				Int("status", int(status.Status)).
+				Str("issuer", status.Issuer).
 				Msg(fmt.Sprintf("%s - expires in %s", status.CommonName, formatDuration(status.TimeRemaining)))
 		}
 	}

@@ -32,6 +32,7 @@ type CertStatus struct {
 	Host          string
 	Expires       time.Time
 	TimeRemaining time.Duration
+	Issuer        string
 }
 
 // Check retrieves the SSL certificate chain for a host and returns a map of
@@ -77,6 +78,7 @@ func Check(log zerolog.Logger, host string, cfg CheckerConfig) (map[string]CertS
 				CommonName:    cert.Subject.CommonName,
 				TimeRemaining: remainingValidity,
 				Expires:       cert.NotAfter,
+				Issuer:        cert.Issuer.CommonName,
 			}
 		}
 	}
