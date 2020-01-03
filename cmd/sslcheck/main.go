@@ -109,7 +109,7 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 			case ssl.StatusWarning, ssl.StatusCritical:
 				logger = log.Warn()
 			}
-			msg := fmt.Sprintf("%s - expires in %s", status.CommonName, formatDuration(status.TimeRemaining))
+			msg := fmt.Sprintf("%s (%s) - expires in %s", status.Host, status.CommonName, formatDuration(status.TimeRemaining))
 			logger.
 				Str("host", status.Host).
 				Str("commonName", status.CommonName).
