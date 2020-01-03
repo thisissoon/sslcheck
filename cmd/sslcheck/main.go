@@ -1,16 +1,18 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"math"
 	"os"
 	"time"
-	"errors"
-	"math"
-	"fmt"
+
+	"go.soon.build/sslcheck/internal/slack"
 
 	"go.soon.build/sslcheck/internal/config"
-	"go.soon.build/sslcheck/internal/version"
 	"go.soon.build/sslcheck/internal/ssl"
+	"go.soon.build/sslcheck/internal/version"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -37,8 +39,8 @@ func main() {
 func sslcheckCmd() *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "sslcheck",
-		Short: "Check SSL certificate status for provided hosts",
+		Use:           "sslcheck",
+		Short:         "Check SSL certificate status for provided hosts",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +53,7 @@ func sslcheckCmd() *cobra.Command {
 				configkit.BindFlag("ssl.connectTimeout", cmd.Flag("timeout")),
 				configkit.BindFlag("ssl.warnValidity", cmd.Flag("warning")),
 				configkit.BindFlag("ssl.criticalValidity", cmd.Flag("critical")),
+				configkit.BindFlag("slack.enabled", cmd.Flag("slack")),
 			)
 			if err != nil {
 				return err
@@ -59,7 +62,7 @@ func sslcheckCmd() *cobra.Command {
 			log = initLogger(cfg.Log)
 			return nil
 		},
-		RunE:   sslcheckRun,
+		RunE: sslcheckRun,
 	}
 	// Global flags
 	pflags := cmd.PersistentFlags()
@@ -69,6 +72,7 @@ func sslcheckCmd() *cobra.Command {
 
 	pflags.StringArrayVar(&hosts, "host", []string{}, "the domain names of the hosts to check")
 	pflags.Duration("timeout", 30*time.Second, "connection timeout")
+	pflags.Bool("slack", false, "send result to slack webhook")
 	pflags.Int("warning", 30, "warning validity in days")
 	pflags.Int("critical", 14, "critical validity in days")
 	// Add sub commands
@@ -89,10 +93,11 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 	}
 
 	c := ssl.CheckerConfig{
-		ConnectTimeout: cfg.SSL.ConnectTimeout,
-		WarnValidity: time.Hour * 24 * time.Duration(cfg.SSL.WarnValidity),
+		ConnectTimeout:   cfg.SSL.ConnectTimeout,
+		WarnValidity:     time.Hour * 24 * time.Duration(cfg.SSL.WarnValidity),
 		CriticalValidity: time.Hour * 24 * time.Duration(cfg.SSL.CriticalValidity),
 	}
+	var attachments = []slack.Attachment{}
 	for _, host := range hosts {
 		certs, err := ssl.Check(log, host, c)
 		if err != nil {
@@ -104,6 +109,7 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 			case ssl.StatusWarning, ssl.StatusCritical:
 				logger = log.Warn()
 			}
+			msg := fmt.Sprintf("%s - expires in %s", status.CommonName, formatDuration(status.TimeRemaining))
 			logger.
 				Str("host", status.Host).
 				Str("commonName", status.CommonName).
@@ -111,7 +117,16 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 				Dur("remainingTime", status.TimeRemaining).
 				Int("status", int(status.Status)).
 				Str("issuer", status.Issuer).
-				Msg(fmt.Sprintf("%s - expires in %s", status.CommonName, formatDuration(status.TimeRemaining)))
+				Msg(msg)
+			attachments = append(attachments, slack.NewAttachment(msg, int(status.Status)))
+		}
+	}
+	// send a message to slack
+	if cfg.Slack.Enabled {
+		msg := slack.NewMsg(attachments)
+		err := slack.SendMsg(msg, cfg.Slack.HookUrl)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
