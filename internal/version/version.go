@@ -8,9 +8,13 @@ import (
 )
 
 var (
-	Version      string
-	Timestamp    string
-	GitCommit    string
+	// Version info, set at build time
+	Version string
+	// Timestamp set at build time
+	Timestamp string
+	// GitCommit set at build time
+	GitCommit string
+	// GitTreeState set at build time
 	GitTreeState string
 )
 

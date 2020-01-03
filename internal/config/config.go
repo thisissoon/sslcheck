@@ -7,7 +7,7 @@ import (
 	"go.soon.build/kit/config"
 )
 
-// application name
+// APP_NAME is a hardcoded application identifier
 const APP_NAME = "sslcheck"
 
 // Config stores configuration options set by configuration file or env vars

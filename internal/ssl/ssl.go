@@ -10,15 +10,23 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Status of SSL certificate expiry
 type Status int
 
 const (
+	// StatusOK means the cert is not due to expire soon
 	StatusOK Status = iota
+	// StatusWarning means the cert is due to expire within the
+	// configured warning duration
 	StatusWarning
+	// StatusCritical means the cert is due to expire within the
+	// configured critical duration
 	StatusCritical
+	// StatusUnknown means the cert expirty is unknown
 	StatusUnknown
 )
 
+// CheckerConfig configures time thresholds for certificate checker
 type CheckerConfig struct {
 	ConnectTimeout   time.Duration
 	WarnValidity     time.Duration
@@ -64,7 +72,7 @@ func Check(log zerolog.Logger, host string, cfg CheckerConfig) (map[string]CertS
 				continue
 			}
 			var certStatus Status
-			remainingValidity := cert.NotAfter.Sub(time.Now())
+			remainingValidity := time.Until(cert.NotAfter)
 			if remainingValidity < cfg.CriticalValidity {
 				certStatus = StatusCritical
 			} else if remainingValidity < cfg.WarnValidity {

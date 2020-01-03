@@ -86,13 +86,13 @@ func TestNewMsg(t *testing.T) {
 			name: "create a message",
 			args: args{
 				a: []Attachment{
-					Attachment{"test txt", "danger"},
+					{"test txt", "danger"},
 				},
 			},
 			want: Msg{
 				Text: "SSL certificate status",
 				Attachments: []Attachment{
-					Attachment{"test txt", "danger"},
+					{"test txt", "danger"},
 				},
 			},
 		},
@@ -118,7 +118,7 @@ func TestSendMsg(t *testing.T) {
 			msg: Msg{
 				Text: "hello message",
 				Attachments: []Attachment{
-					Attachment{
+					{
 						Text:  "test attachment",
 						Color: "warning",
 					},
@@ -133,7 +133,7 @@ func TestSendMsg(t *testing.T) {
 			msg: Msg{
 				Text: "hello message",
 				Attachments: []Attachment{
-					Attachment{
+					{
 						Text:  "test attachment",
 						Color: "warning",
 					},

@@ -8,22 +8,23 @@ import (
 )
 
 const (
-	Danger  = "danger"
-	Warning = "warning"
-	Good    = "good"
-	Default = ""
+	// slack colors
+	colorDanger  = "danger"
+	colorWarning = "warning"
+	colorGood    = "good"
+	colorDefault = ""
 )
 
 func statusToColor(status int) string {
 	switch status {
 	case 0:
-		return Good
+		return colorGood
 	case 1:
-		return Warning
+		return colorWarning
 	case 2:
-		return Danger
+		return colorDanger
 	default:
-		return Default
+		return colorDefault
 	}
 }
 
