@@ -99,27 +99,33 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 	}
 	var attachments = []slack.Attachment{}
 	for _, host := range hosts {
-		certs, err := ssl.Check(log, host, c)
+		status, err := ssl.Check(log, host, c)
 		if err != nil {
-			return err
-		}
-		for _, status := range certs {
-			logger := log.Info()
-			switch status.Status {
-			case ssl.StatusWarning, ssl.StatusCritical:
-				logger = log.Warn()
-			}
-			msg := fmt.Sprintf("%s (%s) - expires in %s", status.Host, status.CommonName, formatDuration(status.TimeRemaining))
-			logger.
+			msg := fmt.Sprintf("%s (%s) - %s", host, status.CommonName, err.Error())
+			log.Error().
 				Str("host", status.Host).
 				Str("commonName", status.CommonName).
-				Time("expiry", status.Expires).
-				Dur("remainingTime", status.TimeRemaining).
-				Int("status", int(status.Status)).
-				Str("issuer", status.Issuer).
+				Err(err).
 				Msg(msg)
-			attachments = append(attachments, slack.NewAttachment(msg, int(status.Status)))
+			attachments = append(attachments, slack.NewAttachment(msg, 2))
+			continue
 		}
+		logger := log.Info()
+		switch status.Status {
+		case ssl.StatusWarning, ssl.StatusCritical:
+			logger = log.Warn()
+		}
+		msg := fmt.Sprintf("%s (%s) - expires in %s", status.Host, status.CommonName, formatDuration(status.TimeRemaining))
+		logger.
+			Str("host", status.Host).
+			Str("commonName", status.CommonName).
+			Strs("dnsNames", status.DNSNames).
+			Time("expiry", status.NotAfter).
+			Dur("remainingTime", status.TimeRemaining).
+			Int("status", int(status.Status)).
+			Str("issuer", status.Issuer).
+			Msg(msg)
+		attachments = append(attachments, slack.NewAttachment(msg, int(status.Status)))
 	}
 	// send a message to slack
 	if cfg.Slack.Enabled {
