@@ -1,5 +1,5 @@
 # Build
-ARG GO_VERSION=1.13.4
+ARG GO_VERSION=1.16.2
 FROM golang:${GO_VERSION}-alpine AS build
 ARG BIN_VERSION
 ARG GIT_COMMIT
@@ -11,17 +11,17 @@ ENV GOPROXY=$GOPROXY
 ENV BIN_OUTDIR=/
 ENV BIN_NAME=sslcheck
 RUN apk add --update-cache \
-		build-base \
-		git \
-		make \
-		upx
+	build-base \
+	git \
+	make \
+	upx
 COPY ./ /go/sslcheck
 WORKDIR /go/sslcheck
 RUN make build
 RUN upx -9 $BIN_OUTDIR/$BIN_NAME
 
 # Image
-FROM alpine:3.11
+FROM alpine:3.13
 RUN apk add --update-cache ca-certificates
 COPY --from=build /sslcheck /usr/local/bin
 ENTRYPOINT ["sslcheck"]
