@@ -7,52 +7,77 @@ import (
 	"net/http"
 )
 
-const (
-	// slack colors
-	colorDanger  = "danger"
-	colorWarning = "warning"
-	colorGood    = "good"
-	colorDefault = ""
-)
-
-func statusToColor(status int) string {
+func statusToEmoji(status int) string {
 	switch status {
 	case 0:
-		return colorGood
+		return ":large_green_circle:"
 	case 1:
-		return colorWarning
+		return ":warning:"
 	case 2:
-		return colorDanger
+		return ":red_circle:"
 	default:
-		return colorDefault
+		return ""
 	}
 }
 
-// Attachment a slack message attachment
-type Attachment struct {
-	Text  string `json:"text"`
-	Color string `json:"color"`
+// A TextBlock represents text content within a block
+type TextBlock struct {
+	Type  string `json:"type,omitempty"`
+	Text  string `json:"text,omitempty"`
+	Emoji bool   `json:"emoji,omitempty"`
 }
 
-// Msg a slack message including attachments
+// A Field within a block
+type Field struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+// Block represents a slack block (see https://app.slack.com/block-kit-builder)
+type Block struct {
+	Type   string     `json:"type"`
+	Text   *TextBlock `json:"text,omitempty"`
+	Fields []Field    `json:"fields,omitempty"`
+}
+
+// Msg a slack message including blocks
 type Msg struct {
-	Text        string       `json:"text"`
-	Attachments []Attachment `json:"attachments"`
+	Text   string  `json:"text"`
+	Blocks []Block `json:"blocks"`
 }
 
-// NewAttachment create a new attachment by providing the text and the status code, which gets converted into a color
-func NewAttachment(text string, status int) Attachment {
-	return Attachment{
-		Text:  text,
-		Color: statusToColor(status),
+// NewStatusBlock create a new block with text and status code, which gets translated into an emoji
+func NewStatusBlock(host string, msg string, status int) Block {
+	return Block{
+		Type: "section",
+		Fields: []Field{
+			{
+				Type: "mrkdwn",
+				Text: "*Host:*\n" + host,
+			},
+			{
+				Type: "mrkdwn",
+				Text: fmt.Sprintf("*Status:*\n%s %s", statusToEmoji(status), msg),
+			},
+		},
 	}
 }
 
-// NewMsg create a new message for slack providing attachments
-func NewMsg(a []Attachment) Msg {
+// NewMsg create a new message for slack with blocks
+func NewMsg(b []Block) Msg {
+	blocks := []Block{
+		{
+			Type: "header",
+			Text: &TextBlock{
+				Type: "plain_text",
+				Text: "SSL Certificate Status",
+			},
+		},
+	}
+	blocks = append(blocks, b...)
 	return Msg{
-		Text:        "SSL certificate status",
-		Attachments: a,
+		Text:   "SSL Certificate Status",
+		Blocks: blocks,
 	}
 }
 
