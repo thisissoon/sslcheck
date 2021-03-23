@@ -8,9 +8,8 @@ import (
 	"os"
 	"time"
 
-	"go.soon.build/sslcheck/internal/slack"
-
 	"go.soon.build/sslcheck/internal/config"
+	"go.soon.build/sslcheck/internal/slack"
 	"go.soon.build/sslcheck/internal/ssl"
 	"go.soon.build/sslcheck/internal/version"
 
@@ -97,7 +96,7 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 		WarnValidity:     time.Hour * 24 * time.Duration(cfg.SSL.WarnValidity),
 		CriticalValidity: time.Hour * 24 * time.Duration(cfg.SSL.CriticalValidity),
 	}
-	var attachments = []slack.Attachment{}
+	var statusBlocks = []slack.Block{}
 	for _, host := range hosts {
 		status, err := ssl.Check(log, host, c)
 		if err != nil {
@@ -107,15 +106,16 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 				Str("commonName", status.CommonName).
 				Err(err).
 				Msg(msg)
-			attachments = append(attachments, slack.NewAttachment(msg, 2))
+			statusBlocks = append(statusBlocks, slack.NewStatusBlock(status.Host, formatDays(status.TimeRemaining), 2))
 			continue
 		}
 		logger := log.Info()
 		switch status.Status {
 		case ssl.StatusWarning, ssl.StatusCritical:
 			logger = log.Warn()
+			// only add blocks to slack notification if status is warning or critical
+			statusBlocks = append(statusBlocks, slack.NewStatusBlock(status.Host, formatDays(status.TimeRemaining), int(status.Status)))
 		}
-		msg := fmt.Sprintf("%s (%s) - expires in %s", status.Host, status.CommonName, formatDuration(status.TimeRemaining))
 		logger.
 			Str("host", status.Host).
 			Str("commonName", status.CommonName).
@@ -124,12 +124,11 @@ func sslcheckRun(cmd *cobra.Command, _ []string) error {
 			Dur("remainingTime", status.TimeRemaining).
 			Int("status", int(status.Status)).
 			Str("issuer", status.Issuer).
-			Msg(msg)
-		attachments = append(attachments, slack.NewAttachment(msg, int(status.Status)))
+			Msg(fmt.Sprintf("%s - %s", status.Host, formatDays(status.TimeRemaining)))
 	}
 	// send a message to slack
-	if cfg.Slack.Enabled {
-		msg := slack.NewMsg(attachments)
+	if cfg.Slack.Enabled && len(statusBlocks) > 0 {
+		msg := slack.NewMsg(statusBlocks)
 		err := slack.SendMsg(msg, cfg.Slack.HookUrl)
 		if err != nil {
 			return err
@@ -163,34 +162,10 @@ func initLogger(c config.Log) zerolog.Logger {
 	}).Timestamp().Logger()
 }
 
-func formatDuration(in time.Duration) string {
-	var daysPart, hoursPart, minutesPart, secondsPart string
-
+func formatDays(in time.Duration) string {
 	days := math.Floor(in.Hours() / 24)
-	hoursRemaining := math.Mod(in.Hours(), 24)
-	if days > 0 {
-		daysPart = fmt.Sprintf("%.fd", days)
-	} else {
-		daysPart = ""
+	if days < 0 {
+		return ""
 	}
-
-	hours, hoursRemaining := math.Modf(hoursRemaining)
-	minutesRemaining := hoursRemaining * 60
-	if hours > 0 {
-		hoursPart = fmt.Sprintf("%.fh", hours)
-	} else {
-		hoursPart = ""
-	}
-
-	if minutesRemaining > 0 {
-		minutesPart = fmt.Sprintf("%.fm", minutesRemaining)
-	}
-
-	_, minutesRemaining = math.Modf(minutesRemaining)
-	secondsRemaining := minutesRemaining * 60
-	if secondsRemaining > 0 {
-		secondsPart = fmt.Sprintf("%.fs", secondsRemaining)
-	}
-
-	return fmt.Sprintf("%s %s %s %s", daysPart, hoursPart, minutesPart, secondsPart)
+	return fmt.Sprintf("%.fd remaining", days)
 }

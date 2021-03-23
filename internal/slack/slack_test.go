@@ -9,65 +9,106 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewAttachment(t *testing.T) {
+func TestNewStatusBlock(t *testing.T) {
 	type args struct {
-		text   string
+		host   string
+		msg    string
 		status int
 	}
-	txt := "test abc"
+	msg := "test"
 	tests := []struct {
 		name string
 		args args
-		want Attachment
+		want Block
 	}{
 		{
-			name: "create an attachment with a status of 0",
+			name: "create a block with a status of 0",
 			args: args{
-				text:   txt,
+				host:   "thisissoon.com",
+				msg:    msg,
 				status: 0,
 			},
-			want: Attachment{
-				Text:  txt,
-				Color: "good",
+			want: Block{
+				Type: "section",
+				Fields: []Field{
+					{
+						Type: "mrkdwn",
+						Text: "*Host:*\nthisissoon.com",
+					},
+					{
+						Type: "mrkdwn",
+						Text: "*Status:*\n:large_green_circle: test",
+					},
+				},
 			},
 		},
 		{
-			name: "create an attachment with a status of 1",
+			name: "create a block with a status of 1",
 			args: args{
-				text:   txt,
+				host:   "thisissoon.com",
+				msg:    msg,
 				status: 1,
 			},
-			want: Attachment{
-				Text:  txt,
-				Color: "warning",
+			want: Block{
+				Type: "section",
+				Fields: []Field{
+					{
+						Type: "mrkdwn",
+						Text: "*Host:*\nthisissoon.com",
+					},
+					{
+						Type: "mrkdwn",
+						Text: "*Status:*\n:warning: test",
+					},
+				},
 			},
 		},
 		{
-			name: "create an attachment with a status of 2",
+			name: "create a block with a status of 2",
 			args: args{
-				text:   txt,
+				host:   "thisissoon.com",
+				msg:    msg,
 				status: 2,
 			},
-			want: Attachment{
-				Text:  txt,
-				Color: "danger",
+			want: Block{
+				Type: "section",
+				Fields: []Field{
+					{
+						Type: "mrkdwn",
+						Text: "*Host:*\nthisissoon.com",
+					},
+					{
+						Type: "mrkdwn",
+						Text: "*Status:*\n:red_circle: test",
+					},
+				},
 			},
 		},
 		{
-			name: "create an attachment with a status of 3",
+			name: "create a block with a status of 3",
 			args: args{
-				text:   txt,
+				host:   "thisissoon.com",
+				msg:    msg,
 				status: 3,
 			},
-			want: Attachment{
-				Text:  txt,
-				Color: "",
+			want: Block{
+				Type: "section",
+				Fields: []Field{
+					{
+						Type: "mrkdwn",
+						Text: "*Host:*\nthisissoon.com",
+					},
+					{
+						Type: "mrkdwn",
+						Text: "*Status:*\n test",
+					},
+				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewAttachment(tt.args.text, tt.args.status)
+			got := NewStatusBlock(tt.args.host, tt.args.msg, tt.args.status)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -75,7 +116,7 @@ func TestNewAttachment(t *testing.T) {
 
 func TestNewMsg(t *testing.T) {
 	type args struct {
-		a []Attachment
+		blocks []Block
 	}
 	tests := []struct {
 		name string
@@ -85,21 +126,52 @@ func TestNewMsg(t *testing.T) {
 		{
 			name: "create a message",
 			args: args{
-				a: []Attachment{
-					{"test txt", "danger"},
+				blocks: []Block{
+					{
+						Type: "section",
+						Fields: []Field{
+							{
+								Type: "mrkdwn",
+								Text: "*Host:*\nthisissoon.com",
+							},
+							{
+								Type: "mrkdwn",
+								Text: "*Status:*\n test",
+							},
+						},
+					},
 				},
 			},
 			want: Msg{
-				Text: "SSL certificate status",
-				Attachments: []Attachment{
-					{"test txt", "danger"},
+				Text: "SSL Certificate Status",
+				Blocks: []Block{
+					{
+						Type: "header",
+						Text: &TextBlock{
+							Type: "plain_text",
+							Text: "SSL Certificate Status",
+						},
+					},
+					{
+						Type: "section",
+						Fields: []Field{
+							{
+								Type: "mrkdwn",
+								Text: "*Host:*\nthisissoon.com",
+							},
+							{
+								Type: "mrkdwn",
+								Text: "*Status:*\n test",
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewMsg(tt.args.a)
+			got := NewMsg(tt.args.blocks)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -117,10 +189,13 @@ func TestSendMsg(t *testing.T) {
 			name: "should send a message",
 			msg: Msg{
 				Text: "hello message",
-				Attachments: []Attachment{
+				Blocks: []Block{
 					{
-						Text:  "test attachment",
-						Color: "warning",
+						Type: "mrkdwn",
+						Text: &TextBlock{
+							Type: "plain_text",
+							Text: "SSL Certificate Status",
+						},
 					},
 				},
 			},
@@ -132,10 +207,13 @@ func TestSendMsg(t *testing.T) {
 			name: "should return an error if the service is unavailable",
 			msg: Msg{
 				Text: "hello message",
-				Attachments: []Attachment{
+				Blocks: []Block{
 					{
-						Text:  "test attachment",
-						Color: "warning",
+						Type: "mrkdwn",
+						Text: &TextBlock{
+							Type: "plain_text",
+							Text: "SSL Certificate Status",
+						},
 					},
 				},
 			},
